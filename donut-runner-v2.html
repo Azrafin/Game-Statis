@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Donut Dash 🍩</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0f0520;
+  }
+
+  body {
+    background: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  #game-wrapper {
+    position: relative;
+    /* Size set by JS to fill viewport maintaining 480:280 ratio */
+  }
+
+  canvas {
+    display: block;
+    border-radius: 0;
+    image-rendering: auto;
+  }
+
+  /* === UI Overlay === */
+  #ui-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    pointer-events: all;
+    padding: 2%;
+    text-align: center;
+    gap: clamp(8px, 1.8vh, 16px);
+  }
+  .screen.active { display: flex; }
+
+  /* Start Screen */
+  #start-screen {
+    background: rgba(10, 5, 30, 0.88);
+    backdrop-filter: blur(8px);
+  }
+
+  .game-title {
+    font-size: clamp(28px, 6vw, 72px);
+    color: #FFE66D;
+    text-shadow: 0 0 20px rgba(255,230,109,0.8), 4px 4px 0 #e05c00;
+    letter-spacing: 2px;
+    animation: titleBounce 1.5s ease-in-out infinite;
+    line-height: 1.1;
+  }
+  .game-subtitle {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(11px, 2vw, 18px);
+    color: #ff8b94;
+    font-weight: 700;
+  }
+
+  @keyframes titleBounce {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+  }
+
+  /* Name input */
+  .name-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: min(300px, 85%);
+  }
+  .name-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(11px, 1.8vw, 14px);
+    color: #FFE66D;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  #player-name-input {
+    width: 100%;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #c44dff;
+    border-radius: 50px;
+    padding: clamp(6px,1vh,10px) clamp(14px,2vw,20px);
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(14px, 2.5vw, 20px);
+    text-align: center;
+    outline: none;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  #player-name-input::placeholder { color: rgba(255,255,255,0.35); }
+  #player-name-input:focus {
+    border-color: #ff6b9d;
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 20px rgba(196,77,255,0.4);
+  }
+
+  /* Upload area */
+  .upload-area {
+    background: rgba(255,255,255,0.07);
+    border: 2px dashed #c44dff;
+    border-radius: 16px;
+    padding: clamp(8px,1.5vh,14px) clamp(12px,2vw,20px);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: min(280px, 80%);
+  }
+  .upload-area:hover { background: rgba(196,77,255,0.15); border-color: #ff6b9d; }
+  .upload-area p {
+    color: #ccc;
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(10px, 1.6vw, 13px);
+    font-weight: 700;
+  }
+  .upload-area .upload-icon { font-size: clamp(20px, 3vw, 28px); margin-bottom: 4px; }
+  #file-input { display: none; }
+
+  .face-preview {
+    width: clamp(52px, 8vw, 72px);
+    height: clamp(52px, 8vw, 72px);
+    border-radius: 50%;
+    border: 3px solid #ff6b9d;
+    object-fit: cover;
+    display: none;
+    box-shadow: 0 0 15px rgba(255,107,157,0.6);
+    margin: 0 auto 4px;
+  }
+  .face-preview.visible { display: block; }
+
+  /* Buttons */
+  .btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(14px, 2.5vw, 22px);
+    color: #1a0a2e;
+    background: linear-gradient(135deg, #FFE66D, #ff9a3c);
+    border: none;
+    border-radius: 50px;
+    padding: clamp(8px,1.5vh,12px) clamp(24px,4vw,40px);
+    cursor: pointer;
+    box-shadow: 0 6px 0 #b35e00, 0 8px 20px rgba(255,154,60,0.4);
+    transition: all 0.1s;
+    letter-spacing: 1px;
+    width: min(260px, 80%);
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b35e00; }
+  .btn.secondary {
+    background: linear-gradient(135deg, #4ECDC4, #44a8a0);
+    box-shadow: 0 6px 0 #2a7068;
+    color: white;
+    font-size: clamp(12px, 2vw, 18px);
+    padding: clamp(6px,1.2vh,10px) clamp(18px,3vw,30px);
+  }
+  .btn.secondary:active { box-shadow: 0 2px 0 #2a7068; }
+
+  /* Instructions */
+  .instructions {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(9px, 1.6vw, 13px);
+    color: #9bb3d4;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+  .instructions span { color: #FFE66D; }
+
+  /* Game Over Screen */
+  #gameover-screen {
+    background: rgba(10, 5, 30, 0.92);
+    backdrop-filter: blur(8px);
+  }
+  .gameover-title {
+    font-size: clamp(28px, 6vw, 52px);
+    color: #ff6b6b;
+    text-shadow: 4px 4px 0 #8b0000, 0 0 30px rgba(255,107,107,0.6);
+    animation: shake 0.5s ease-out;
+  }
+  .gameover-name {
+    font-size: clamp(16px, 3vw, 28px);
+    color: #FFE66D;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+    opacity: 0.9;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+  .score-display {
+    font-size: clamp(20px, 4.5vw, 36px);
+    color: #FFE66D;
+    text-shadow: 2px 2px 0 #b35e00;
+  }
+  .score-display span {
+    display: block;
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(9px, 1.6vw, 13px);
+    font-weight: 700;
+    color: #9bb3d4;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .highscore-badge {
+    background: linear-gradient(135deg, #c44dff, #ff6b9d);
+    color: white;
+    font-size: clamp(10px, 1.8vw, 15px);
+    padding: clamp(4px,0.8vh,6px) clamp(12px,2vw,20px);
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(196,77,255,0.5);
+    display: none;
+  }
+  .highscore-badge.visible { display: block; }
+
+  /* Pause Screen */
+  #pause-screen {
+    background: rgba(10, 5, 30, 0.80);
+    backdrop-filter: blur(6px);
+  }
+  .pause-title {
+    font-size: clamp(28px, 6vw, 52px);
+    color: #4ECDC4;
+    text-shadow: 4px 4px 0 #2a7068;
+  }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: clamp(6px, 1.5vh, 14px) clamp(8px, 1.5vw, 16px);
+    pointer-events: none;
+    z-index: 5;
+  }
+  #hud.hidden { display: none; }
+  .hud-score {
+    font-size: clamp(18px, 3.5vw, 32px);
+    color: white;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.5), 0 0 15px rgba(255,230,109,0.8);
+    letter-spacing: 1px;
+  }
+  .hud-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(8px, 1.2vw, 11px);
+    color: rgba(255,255,255,0.7);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .hud-player-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(9px, 1.4vw, 13px);
+    font-weight: 900;
+    color: #FFE66D;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
+    display: block;
+    max-width: clamp(80px, 12vw, 120px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pause-btn {
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 10px;
+    color: white;
+    font-size: clamp(14px, 2.5vw, 20px);
+    width: clamp(30px, 5vw, 42px);
+    height: clamp(30px, 5vw, 42px);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    pointer-events: all;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .pause-btn:hover { background: rgba(255,255,255,0.25); }
+
+  /* Mobile jump button */
+  #jump-btn {
+    position: absolute;
+    bottom: clamp(10px, 3vh, 20px);
+    right: clamp(10px, 2vw, 20px);
+    width: clamp(56px, 10vw, 80px);
+    height: clamp(56px, 10vw, 80px);
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255,230,109,0.9), rgba(255,154,60,0.9));
+    border: 3px solid rgba(255,255,255,0.4);
+    font-size: clamp(22px, 4vw, 32px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 4px 20px rgba(255,154,60,0.6), 0 4px 0 rgba(0,0,0,0.3);
+    transition: all 0.1s;
+    z-index: 10;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #jump-btn:active { transform: scale(0.92); box-shadow: 0 2px 10px rgba(255,154,60,0.6); }
+  #jump-btn.visible { display: flex; }
+
+  /* Speed indicator */
+  .speed-bar-wrapper {
+    position: absolute;
+    bottom: clamp(8px, 2vh, 14px);
+    left: clamp(8px, 1.5vw, 16px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .speed-bar-wrapper.hidden { display: none; }
+  .speed-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(7px, 1.1vw, 10px);
+    color: rgba(255,255,255,0.6);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .speed-track {
+    width: clamp(40px, 7vw, 70px);
+    height: 6px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .speed-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ECDC4, #c44dff);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div>
+      <span class="hud-label">Score</span>
+      <div class="hud-score" id="hud-score">0</div>
+      <span class="hud-player-name" id="hud-player-name"></span>
+    </div>
+    <div style="text-align:right">
+      <span class="hud-label">Best</span>
+      <div class="hud-score" id="hud-best" style="color:#c44dff">0</div>
+    </div>
+    <button class="pause-btn" id="pause-btn" aria-label="Pause">⏸</button>
+  </div>
+
+  <!-- Speed bar -->
+  <div class="speed-bar-wrapper hidden" id="speed-bar-wrapper">
+    <span class="speed-label">SPEED</span>
+    <div class="speed-track"><div class="speed-fill" id="speed-fill" style="width:10%"></div></div>
+  </div>
+
+  <!-- Mobile jump button -->
+  <button id="jump-btn" aria-label="Jump">↑</button>
+
+  <div id="ui-overlay">
+
+    <!-- START SCREEN -->
+    <div class="screen active" id="start-screen">
+      <div class="game-title">🍩 Donut<br>Dash!</div>
+      <div class="game-subtitle">Run. Jump. Survive the kitchen chaos.</div>
+
+      <!-- Name Input -->
+      <div class="name-input-wrapper">
+        <span class="name-label">✏️ Your Name</span>
+        <input
+          type="text"
+          id="player-name-input"
+          placeholder="Enter your name..."
+          maxlength="16"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <!-- Photo Upload -->
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+        <img class="face-preview" id="face-preview" src="" alt="Your face">
+        <div class="upload-icon">📸</div>
+        <p id="upload-text">Tap to use your face as the donut!</p>
+      </div>
+      <input type="file" id="file-input" accept="image/*">
+
+      <button class="btn" id="play-btn">▶ Play!</button>
+
+      <div class="instructions">
+        <span>SPACE</span> / <span>↑</span> / <span>TAP</span> to jump<br>
+        Dodge flying chilis, angry forks &amp; evil knives!<br>
+        <span>ESC</span> to pause
+      </div>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div class="screen" id="pause-screen">
+      <div class="pause-title">⏸ Paused</div>
+      <button class="btn" id="resume-btn">▶ Resume</button>
+      <button class="btn secondary" id="pause-quit-btn">🏠 Main Menu</button>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div class="screen" id="gameover-screen">
+      <div class="gameover-title">💥 Ouch!</div>
+      <div class="gameover-name" id="gameover-name"></div>
+      <div class="score-display">
+        <span>Your Score</span>
+        <span id="final-score">0</span>
+      </div>
+      <div class="score-display" style="color:#c44dff">
+        <span>Best Score</span>
+        <span id="best-score-display">0</span>
+      </div>
+      <div class="highscore-badge" id="new-highscore">🏆 New High Score!</div>
+      <button class="btn" id="restart-btn">🔄 Try Again!</button>
+      <button class="btn secondary" id="quit-btn">🏠 Main Menu</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// === SECTION: Constants & Config ===
+const CANVAS_W = 480;
+const CANVAS_H = 280;
+const GROUND_Y = CANVAS_H - 55;
+const GRAVITY = 0.6;
+const JUMP_FORCE = -13.5;
+const BASE_SPEED = 3.5;
+const MAX_SPEED_MULTIPLIER = 3.0;
+const SPEED_RAMP_INTERVAL = 10000;
+const OBSTACLE_INTERVAL_MIN = 1200;
+const OBSTACLE_INTERVAL_MAX = 2600;
+
+// === SECTION: Game State ===
+let gameState = 'start';
+let score = 0;
+let highScore = parseInt(localStorage.getItem('donutDash_hs') || '0');
+let gameTime = 0;
+let lastTime = 0;
+let scoreTimer = 0;
+let nextObstacleTime = 0;
+let speedMultiplier = 1;
+let particles = [];
+let obstacles = [];
+let clouds = [];
+let bgX1 = 0, bgX2 = CANVAS_W;
+let groundX = 0;
+let faceImage = null;
+let animFrame = null;
+let isMobile = false;
+let playerName = '';
+
+// === SECTION: Player Object ===
+const player = {
+  x: 80, y: GROUND_Y,
+  w: 54, h: 58,
+  vy: 0,
+  isGrounded: true,
+  animFrame: 0, animTimer: 0,
+  alive: true,
+  runCycle: 0
+};
+
+// === SECTION: Canvas Setup ===
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = CANVAS_W;
+canvas.height = CANVAS_H;
+
+function resizeGame() {
+  const wrapper = document.getElementById('game-wrapper');
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const aspectRatio = CANVAS_W / CANVAS_H; // 480/280
+
+  let displayW, displayH;
+  if (vw / vh > aspectRatio) {
+    displayH = vh;
+    displayW = vh * aspectRatio;
+  } else {
+    displayW = vw;
+    displayH = vw / aspectRatio;
+  }
+
+  canvas.style.width = displayW + 'px';
+  canvas.style.height = displayH + 'px';
+  wrapper.style.width = displayW + 'px';
+  wrapper.style.height = displayH + 'px';
+
+  isMobile = window.innerWidth <= 700 || 'ontouchstart' in window;
+  document.getElementById('jump-btn').classList.toggle('visible', isMobile && gameState === 'playing');
+}
+resizeGame();
+window.addEventListener('resize', resizeGame);
+
+// === SECTION: Face Upload ===
+const fileInput = document.getElementById('file-input');
+const facePreview = document.getElementById('face-preview');
+const uploadText = document.getElementById('upload-text');
+
+fileInput.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      faceImage = img;
+      facePreview.src = ev.target.result;
+      facePreview.classList.add('visible');
+      uploadText.textContent = 'Face ready! 🎉 Change photo';
+      document.querySelector('.upload-icon').style.display = 'none';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// === SECTION: Screen Management ===
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const s = document.getElementById(name + '-screen');
+  if (s) s.classList.add('active');
+
+  const hud = document.getElementById('hud');
+  const speedBar = document.getElementById('speed-bar-wrapper');
+  const jumpBtn = document.getElementById('jump-btn');
+
+  if (name === 'playing') {
+    hud.classList.remove('hidden');
+    speedBar.classList.remove('hidden');
+    if (isMobile) jumpBtn.classList.add('visible');
+  } else {
+    hud.classList.add('hidden');
+    speedBar.classList.add('hidden');
+    jumpBtn.classList.remove('visible');
+  }
+}
+
+// === SECTION: Cloud Generation ===
+function initClouds() {
+  clouds = [];
+  for (let i = 0; i < 6; i++) {
+    clouds.push({
+      x: Math.random() * CANVAS_W,
+      y: 20 + Math.random() * 60,
+      w: 60 + Math.random() * 80,
+      speed: 0.3 + Math.random() * 0.4,
+      alpha: 0.4 + Math.random() * 0.4
+    });
+  }
+}
+
+// === SECTION: Game Initialization ===
+function initGame() {
+  // Grab player name
+  const nameInput = document.getElementById('player-name-input');
+  playerName = nameInput.value.trim() || 'Player';
+  document.getElementById('hud-player-name').textContent = playerName;
+
+  score = 0;
+  gameTime = 0;
+  scoreTimer = 0;
+  speedMultiplier = 1;
+  nextObstacleTime = 1500;
+  obstacles = [];
+  particles = [];
+  bgX1 = 0; bgX2 = CANVAS_W;
+  groundX = 0;
+  initClouds();
+
+  player.x = 80; player.y = GROUND_Y;
+  player.vy = 0;
+  player.isGrounded = true;
+  player.alive = true;
+  player.animFrame = 0; player.animTimer = 0;
+  player.runCycle = 0;
+
+  document.getElementById('hud-best').textContent = highScore;
+  document.getElementById('hud-score').textContent = '0';
+  document.getElementById('speed-fill').style.width = '10%';
+
+  showScreen('playing');
+  resizeGame();
+  gameState = 'playing';
+  lastTime = performance.now();
+
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+// === SECTION: Obstacle Spawning ===
+const OBSTACLE_TYPES = [
+  { name: 'chili',      w: 22, h: 36, airborne: false, emoji: '🌶️' },
+  { name: 'chili_high', w: 22, h: 36, airborne: true,  emoji: '🌶️' },
+  { name: 'fork',       w: 18, h: 44, airborne: false, emoji: '🍴' },
+  { name: 'knife',      w: 14, h: 50, airborne: false, emoji: '🔪' },
+  { name: 'pepper',     w: 24, h: 32, airborne: true,  emoji: '🫑' },
+];
+
+function spawnObstacle() {
+  const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+  const groundedY = GROUND_Y + player.h - type.h;
+  const airY = GROUND_Y - 60 - Math.random() * 20;
+  obstacles.push({
+    x: CANVAS_W + 10,
+    y: type.airborne ? airY : groundedY,
+    w: type.w, h: type.h,
+    type: type.name, emoji: type.emoji,
+    speed: BASE_SPEED * speedMultiplier,
+    rotation: type.airborne ? (Math.random() * Math.PI * 2) : 0,
+    rotSpeed: (Math.random() - 0.5) * 0.1
+  });
+}
+
+// === SECTION: Particle System ===
+function spawnParticles(x, y, count, colors) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      life: 1,
+      decay: 0.04 + Math.random() * 0.03,
+      size: 3 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+}
+
+function spawnJumpParticles() {
+  spawnParticles(player.x + player.w/2, player.y + player.h, 8,
+    ['#FFE66D','#ff9a3c','#fff','#c44dff']);
+}
+
+// === SECTION: Drawing — Background ===
+function drawBackground(dt) {
+  const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  grad.addColorStop(0, '#87CEEB');
+  grad.addColorStop(0.6, '#FFD4A8');
+  grad.addColorStop(1, '#FFA07A');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  clouds.forEach(c => {
+    if (gameState === 'playing') c.x -= c.speed * speedMultiplier * dt * 60/1000;
+    if (c.x + c.w < 0) c.x = CANVAS_W + 10;
+    drawCloud(c.x, c.y, c.w, c.alpha);
+  });
+
+  const hillSpeed = BASE_SPEED * speedMultiplier * 0.4;
+  bgX1 -= (gameState === 'playing' ? hillSpeed * dt * 60/1000 : 0);
+  bgX2 -= (gameState === 'playing' ? hillSpeed * dt * 60/1000 : 0);
+  if (bgX1 + CANVAS_W < 0) bgX1 = bgX2 + CANVAS_W;
+  if (bgX2 + CANVAS_W < 0) bgX2 = bgX1 + CANVAS_W;
+  drawHills(bgX1); drawHills(bgX2);
+
+  groundX -= (gameState === 'playing' ? BASE_SPEED * speedMultiplier * dt * 60/1000 : 0);
+  if (groundX <= -40) groundX = 0;
+  drawGround(groundX);
+}
+
+function drawCloud(x, y, w, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = 'white';
+  const h = w * 0.45;
+  ctx.beginPath();
+  ctx.ellipse(x + w*0.5, y + h*0.6, w*0.5, h*0.45, 0, 0, Math.PI*2);
+  ctx.ellipse(x + w*0.3, y + h*0.5, w*0.3, h*0.4,  0, 0, Math.PI*2);
+  ctx.ellipse(x + w*0.72,y + h*0.5, w*0.28,h*0.38, 0, 0, Math.PI*2);
+  ctx.fill(); ctx.restore();
+}
+
+function drawHills(ox) {
+  ctx.save(); ctx.fillStyle = '#98e88a';
+  ctx.beginPath();
+  ctx.moveTo(ox, GROUND_Y + 2);
+  ctx.bezierCurveTo(ox+60, GROUND_Y-40, ox+120, GROUND_Y-60, ox+180, GROUND_Y-30);
+  ctx.bezierCurveTo(ox+240,GROUND_Y-5,  ox+310, GROUND_Y-50, ox+380, GROUND_Y-35);
+  ctx.bezierCurveTo(ox+430,GROUND_Y-20, ox+460, GROUND_Y-10, ox+CANVAS_W, GROUND_Y+2);
+  ctx.lineTo(ox+CANVAS_W, CANVAS_H); ctx.lineTo(ox, CANVAS_H);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function drawGround(ox) {
+  ctx.fillStyle = '#8B5E3C';
+  ctx.fillRect(0, GROUND_Y + player.h - 2, CANVAS_W, CANVAS_H - GROUND_Y - player.h + 2);
+  ctx.fillStyle = '#5cb85c';
+  ctx.fillRect(0, GROUND_Y + player.h - 8, CANVAS_W, 10);
+  const tileW = 40, tileH = 14;
+  for (let i = -1; i <= Math.ceil(CANVAS_W/tileW)+1; i++) {
+    const tx = (i*tileW + ox) % (tileW*2 + CANVAS_W) - tileW;
+    ctx.fillStyle = (i%2===0) ? '#d4a76a' : '#c4935a';
+    ctx.fillRect(tx, GROUND_Y + player.h + 6, tileW, tileH);
+  }
+  ctx.fillStyle = 'rgba(255,220,150,0.15)';
+  ctx.fillRect(0, GROUND_Y + player.h + 6, CANVAS_W, 3);
+}
+
+// === SECTION: Drawing — Player (Bigger Head) ===
+function drawPlayer(dt) {
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  if (player.isGrounded) {
+    ctx.rotate(Math.sin(player.runCycle * 0.4) * 0.05);
+  } else {
+    ctx.rotate(-0.15);
+  }
+
+  // === BODY: Big donut ===
+  const bodyR = 22;
+  const bodyY = 6;
+
+  // Donut outer body
+  ctx.beginPath();
+  ctx.arc(0, bodyY, bodyR, 0, Math.PI*2);
+  ctx.fillStyle = '#F4A261';
+  ctx.fill();
+
+  // Pink glaze
+  ctx.beginPath();
+  ctx.ellipse(0, bodyY-5, bodyR*0.85, bodyR*0.6, 0, Math.PI, Math.PI*2);
+  ctx.fillStyle = '#ff8fab';
+  ctx.fill();
+
+  // Donut hole
+  ctx.beginPath();
+  ctx.arc(0, bodyY, 9, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, bodyY, 8, 0, Math.PI*2);
+  ctx.fillStyle = '#ffe0b0'; ctx.fill();
+
+  // Sprinkles
+  [
+    {x:-11, y:bodyY-11, a:0.5,  c:'#FFE66D'},
+    {x:5,   y:bodyY-15, a:-0.3, c:'#4ECDC4'},
+    {x:13,  y:bodyY-9,  a:0.8,  c:'#c44dff'},
+    {x:-5,  y:bodyY-14, a:1.2,  c:'#ff6b6b'},
+    {x:-15, y:bodyY-8,  a:-0.6, c:'#fff'},
+  ].forEach(s => {
+    ctx.save();
+    ctx.translate(s.x, s.y); ctx.rotate(s.a);
+    ctx.fillStyle = s.c;
+    ctx.fillRect(-5,-2,10,4);
+    ctx.restore();
+  });
+
+  // === LEGS ===
+  const legSwing = player.isGrounded ? Math.sin(player.runCycle*0.45)*14 : 0;
+  const legY = bodyY + bodyR - 4;
+  const legW = 8, legH = 14;
+
+  [-8, 8].forEach((lx, i) => {
+    ctx.save();
+    ctx.translate(lx, legY);
+    ctx.rotate(legSwing * (i===0 ? 0.08 : -0.08));
+    ctx.fillStyle = '#F4A261';
+    ctx.beginPath(); ctx.roundRect(-legW/2, 0, legW, legH, 4); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(i===0 ? -legW/2+2 : legW/2-2, legH, 7, 5, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // === ARMS ===
+  const armSwing = player.isGrounded ? Math.cos(player.runCycle*0.45)*10 : 5;
+  ctx.fillStyle = '#F4A261';
+  ctx.save(); ctx.translate(-bodyR+2, bodyY-2);
+  ctx.rotate((armSwing-5)*0.05);
+  ctx.beginPath(); ctx.ellipse(-4,0,5,3,0.4,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.translate(bodyR-2, bodyY-2);
+  ctx.rotate((-armSwing+5)*0.05);
+  ctx.beginPath(); ctx.ellipse(4,0,5,3,-0.4,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // === HEAD: Much bigger ===
+  const headR = 22; // was 16 — significantly larger
+  const headY = bodyY - bodyR - headR + 2;
+
+  // Glow ring around head (makes it pop)
+  ctx.beginPath();
+  ctx.arc(0, headY, headR + 3, 0, Math.PI*2);
+  ctx.fillStyle = faceImage ? 'rgba(255,107,157,0.35)' : 'rgba(255,230,109,0.25)';
+  ctx.fill();
+
+  // Head circle background
+  ctx.beginPath();
+  ctx.arc(0, headY, headR, 0, Math.PI*2);
+  ctx.fillStyle = '#ffe0b0';
+  ctx.fill();
+  ctx.strokeStyle = '#f4a261';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Face content
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, headY, headR - 1.5, 0, Math.PI*2);
+  ctx.clip();
+
+  if (faceImage) {
+    const faceSize = (headR - 1.5) * 2;
+    ctx.drawImage(faceImage, -(headR-1.5), headY - (headR-1.5), faceSize, faceSize);
+  } else {
+    ctx.fillStyle = '#ffe0b0';
+    ctx.fillRect(-headR, headY-headR, headR*2, headR*2);
+    const blinkOpen = (Date.now()%3000 > 2700) ? 0.5 : 4;
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.ellipse(-6, headY-3, 3.5, blinkOpen, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6,  headY-3, 3.5, blinkOpen, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(-5, headY-5, 1.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7,  headY-5, 1.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#c0603a'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(0, headY, 7, 0.2, Math.PI-0.2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,100,100,0.3)';
+    ctx.beginPath(); ctx.ellipse(-8, headY+3, 5, 3.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8,  headY+3, 5, 3.5, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.restore(); // restore clip
+  ctx.restore(); // restore transform
+}
+
+// === SECTION: Drawing — Obstacles ===
+function drawObstacle(obs) {
+  ctx.save();
+  ctx.translate(obs.x + obs.w/2, obs.y + obs.h/2);
+  ctx.rotate(obs.rotation);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(0, obs.h/2+4, obs.w*0.6, 4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.font = `${Math.max(obs.w,obs.h)*0.9}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(obs.emoji, 0, 0);
+  if (!['chili_high','pepper'].includes(obs.type)) {
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath(); ctx.arc(-4, -obs.h*0.25, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(4,  -obs.h*0.25, 3, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// === SECTION: Drawing — Particles ===
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size*p.life, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+// === SECTION: Collision Detection ===
+function checkCollisions() {
+  const px = player.x+8, py = player.y+6;
+  const pw = player.w-16, ph = player.h-20;
+  for (let obs of obstacles) {
+    const ox = obs.x+4, oy = obs.y+4;
+    const ow = obs.w-8, oh = obs.h-8;
+    if (px < ox+ow && px+pw > ox && py < oy+oh && py+ph > oy) {
+      triggerGameOver(); return;
+    }
+  }
+}
+
+// === SECTION: Game Over Logic ===
+function triggerGameOver() {
+  player.alive = false;
+  gameState = 'gameover';
+  spawnParticles(player.x+player.w/2, player.y+player.h/2, 20,
+    ['#FFE66D','#ff6b6b','#c44dff','#fff','#4ECDC4']);
+
+  const isNewHigh = score > highScore;
+  if (isNewHigh) {
+    highScore = score;
+    localStorage.setItem('donutDash_hs', highScore);
+  }
+
+  setTimeout(() => {
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('best-score-display').textContent = highScore;
+    document.getElementById('new-highscore').classList.toggle('visible', isNewHigh);
+    const nameEl = document.getElementById('gameover-name');
+    if (playerName && playerName !== 'Player') {
+      nameEl.textContent = `😵 Aw, ${playerName}!`;
+    } else {
+      nameEl.textContent = '';
+    }
+    showScreen('gameover');
+  }, 700);
+}
+
+// === SECTION: Update Logic ===
+function update(dt) {
+  if (gameState !== 'playing' || !player.alive) return;
+  gameTime += dt;
+  scoreTimer += dt;
+  if (scoreTimer >= 1000) {
+    score++;
+    scoreTimer -= 1000;
+    document.getElementById('hud-score').textContent = score;
+  }
+
+  const speedLevel = Math.floor(gameTime / SPEED_RAMP_INTERVAL);
+  speedMultiplier = Math.min(1 + speedLevel*0.25, MAX_SPEED_MULTIPLIER);
+  const speedPct = ((speedMultiplier-1)/(MAX_SPEED_MULTIPLIER-1))*90+10;
+  document.getElementById('speed-fill').style.width = Math.min(speedPct,100)+'%';
+
+  player.vy += GRAVITY;
+  player.y += player.vy;
+  if (player.y >= GROUND_Y) {
+    player.y = GROUND_Y; player.vy = 0; player.isGrounded = true;
+  } else { player.isGrounded = false; }
+
+  if (player.isGrounded) player.runCycle += dt*0.015*speedMultiplier;
+
+  nextObstacleTime -= dt;
+  if (nextObstacleTime <= 0) {
+    spawnObstacle();
+    const interval = Math.max(OBSTACLE_INTERVAL_MIN,
+      (OBSTACLE_INTERVAL_MIN + Math.random()*(OBSTACLE_INTERVAL_MAX-OBSTACLE_INTERVAL_MIN))/speedMultiplier);
+    nextObstacleTime = interval;
+  }
+
+  obstacles = obstacles.filter(obs => {
+    obs.x -= BASE_SPEED * speedMultiplier;
+    if (['chili_high','pepper'].includes(obs.type)) obs.rotation += obs.rotSpeed;
+    return obs.x + obs.w > -10;
+  });
+
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15;
+    p.life -= p.decay; p.size *= 0.98;
+    return p.life > 0;
+  });
+
+  checkCollisions();
+}
+
+// === SECTION: Rendering ===
+function render(dt) {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  drawBackground(dt);
+  obstacles.forEach(drawObstacle);
+  drawPlayer(dt);
+  drawParticles();
+
+  if (gameState === 'playing' && speedMultiplier > 1.5) {
+    ctx.save();
+    ctx.font = `bold 11px 'Fredoka One', cursive`;
+    ctx.fillStyle = speedMultiplier > 2 ? '#ff6b6b' : '#FFE66D';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.8 + Math.sin(Date.now()*0.005)*0.2;
+    ctx.fillText(speedMultiplier > 2.5 ? '🔥 BLAZING FAST!' : '⚡ SPEEDING UP!', CANVAS_W/2, 20);
+    ctx.restore();
+  }
+}
+
+// === SECTION: Game Loop ===
+function gameLoop(timestamp) {
+  const dt = Math.min(timestamp - lastTime, 50);
+  lastTime = timestamp;
+  update(dt); render(dt);
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+// === SECTION: Input Handling ===
+function jump() {
+  if (gameState !== 'playing' || !player.alive) return;
+  if (player.isGrounded) {
+    player.vy = JUMP_FORCE;
+    player.isGrounded = false;
+    spawnJumpParticles();
+  }
+}
+
+function togglePause() {
+  if (gameState === 'playing') {
+    gameState = 'paused';
+    showScreen('pause');
+    document.getElementById('pause-btn').textContent = '▶';
+  } else if (gameState === 'paused') {
+    gameState = 'playing';
+    lastTime = performance.now();
+    showScreen('playing');
+    document.getElementById('pause-btn').textContent = '⏸';
+  }
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    // Don't jump if focused on name input
+    if (document.activeElement === document.getElementById('player-name-input')) return;
+    e.preventDefault(); jump();
+  }
+  if (e.code === 'Escape') {
+    e.preventDefault();
+    if (gameState === 'playing' || gameState === 'paused') togglePause();
+  }
+  if (e.code === 'Enter') {
+    if (gameState === 'start') initGame();
+  }
+});
+
+// Touch on canvas
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault(); jump();
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && document.activeElement !== document.getElementById('player-name-input'))
+    e.preventDefault();
+});
+
+// === SECTION: Button Listeners ===
+document.getElementById('play-btn').addEventListener('click', initGame);
+document.getElementById('restart-btn').addEventListener('click', initGame);
+document.getElementById('pause-btn').addEventListener('click', togglePause);
+
+document.getElementById('jump-btn').addEventListener('touchstart', e => {
+  e.preventDefault(); jump();
+}, { passive: false });
+document.getElementById('jump-btn').addEventListener('click', jump);
+
+document.getElementById('resume-btn').addEventListener('click', () => {
+  gameState = 'playing';
+  lastTime = performance.now();
+  showScreen('playing');
+  document.getElementById('pause-btn').textContent = '⏸';
+});
+
+document.getElementById('pause-quit-btn').addEventListener('click', () => {
+  gameState = 'start'; showScreen('start');
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  initClouds();
+  requestAnimationFrame(() => render(16));
+});
+
+document.getElementById('quit-btn').addEventListener('click', () => {
+  gameState = 'start'; showScreen('start');
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  initClouds();
+  requestAnimationFrame(() => render(16));
+});
+
+// === SECTION: Initial Render ===
+initClouds();
+document.getElementById('hud-best').textContent = highScore;
+
+function startScreenLoop(ts) {
+  if (gameState !== 'start' && gameState !== 'gameover') return;
+  clouds.forEach(c => {
+    c.x -= c.speed * 0.5;
+    if (c.x + c.w < 0) c.x = CANVAS_W + 10;
+  });
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  drawBackground(16);
+  player.x = CANVAS_W/2 - player.w/2;
+  player.y = GROUND_Y;
+  player.isGrounded = true;
+  player.runCycle = ts * 0.001;
+  drawPlayer(16);
+  requestAnimationFrame(startScreenLoop);
+}
+requestAnimationFrame(startScreenLoop);
+</script>
+</body>
+</html>
